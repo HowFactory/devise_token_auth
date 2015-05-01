@@ -12,7 +12,8 @@ module DeviseTokenAuth::Concerns::User
 
     serialize :tokens, JSON
 
-    validates :email, presence: true, email: true, if: Proc.new { |u| u.provider == 'email' }
+    #validates :email, presence: true, email: true, if: Proc.new { |u| u.provider == 'email' }
+
     validates_presence_of :uid, if: Proc.new { |u| u.provider != 'email' }
 
     # only validate unique emails among email registration users
@@ -234,7 +235,8 @@ module DeviseTokenAuth::Concerns::User
   end
 
   def sync_uid
-    self.uid = email if provider == 'email'
+    self.uid = email if provider == 'email' && !self.email.blank?
+    self.uid = SecureRandom.uuid if provider == 'email' && self.email.blank?
   end
 
   def destroy_expired_tokens
