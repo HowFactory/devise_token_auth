@@ -6,10 +6,10 @@ module DeviseTokenAuth
     # this action is responsible for generating password reset tokens and
     # sending emails
     def create
-      unless resource_params[:email]
+      if !resource_params[:username]
         return render json: {
           success: false,
-          errors: ['You must provide an email address.']
+          errors: ['You must provide an email address or a username']
         }, status: 401
       end
 
@@ -38,20 +38,33 @@ module DeviseTokenAuth
       end
 
       # honor devise configuration for case_insensitive_keys
-      if resource_class.case_insensitive_keys.include?(:email)
-        email = resource_params[:email].downcase
-      else
-        email = resource_params[:email]
+      if resource_params[:username]
+        if resource_class.case_insensitive_keys.include?(:email)
+          email = resource_params[:username].downcase
+        else
+          email = resource_params[:username]
+        end
+        q = "uid = ? AND provider='email'"
+        if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
+          q = "BINARY uid = ? AND provider='email'"
+        end
+        @resource = resource_class.where(q, email).first
+        unless @resource
+          username = resource_params[:username]
+          q = "username = ? AND provider='email'"
+          @resource = resource_class.where(q, username).first
+          if @resource
+            email = @resource.email
+            if email.blank?
+              return render json: {
+              success: false,
+              errors: ['There is no email address associated with this account. Please contact your company admin to reset your password.']
+            }, status: 401
+            end
+          end
+        end
       end
-
-      q = "uid = ? AND provider='email'"
-
-      # fix for mysql default case insensitivity
-      if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
-        q = "BINARY uid = ? AND provider='email'"
-      end
-
-      @resource = resource_class.where(q, email).first
+      
 
       errors = nil
       error_status = 400
@@ -74,7 +87,7 @@ module DeviseTokenAuth
           errors = @resource.errors
         end
       else
-        errors = ["Unable to find user with email '#{email}'."]
+        errors = ["Unable to find user with email or username '#{params[:username]}'."]
         error_status = 404
       end
 
@@ -167,7 +180,7 @@ module DeviseTokenAuth
     end
 
     def resource_params
-      params.permit(:email, :password, :password_confirmation, :reset_password_token)
+      params.permit(:email, :password, :password_confirmation, :reset_password_token, :username, :redirect_url)
     end
 
   end
