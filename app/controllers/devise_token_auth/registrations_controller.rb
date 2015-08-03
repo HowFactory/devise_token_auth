@@ -6,17 +6,14 @@ module DeviseTokenAuth
     skip_after_filter :update_auth_header, :only => [:create, :destroy]
 
     def create
-      @resource            = resource_class.new(sign_up_params)
+      @resource            = resource_class.new(resource_params)
       @resource.provider   = "email"
+      @resource.admin      = true
 
-      # honor devise configuration for case_insensitive_keys
-      if resource_class.case_insensitive_keys.include?(:email)
-        @resource.email = sign_up_params[:email].downcase
-      else
-        @resource.email = sign_up_params[:email]
-      end
-
+      organization         = Organization.new(name: params[:organization_name])
+      @resource.organization = organization
       # give redirect value from params priority
+
       redirect_url = params[:confirm_success_url]
 
       # fall back to default value if provided
@@ -45,6 +42,9 @@ module DeviseTokenAuth
       begin
         # override email confirmation, must be sent manually from ctrl
         resource_class.skip_callback("create", :after, :send_on_create_confirmation_instructions)
+
+        organization.save if @resource.valid?
+        
         if @resource.save
           yield @resource if block_given?
 
@@ -130,6 +130,10 @@ module DeviseTokenAuth
           errors: ["Unable to locate account for destruction."]
         }, status: 404
       end
+    end
+
+    def resource_params
+      params.permit(:email, :password, :password_confirmation, :username, :first_name, :last_name)
     end
 
     def sign_up_params
