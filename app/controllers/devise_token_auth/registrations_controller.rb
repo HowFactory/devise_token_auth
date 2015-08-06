@@ -9,7 +9,6 @@ module DeviseTokenAuth
       @resource            = resource_class.new(resource_params)
       @resource.provider   = "email"
       @resource.admin      = true
-
       organization         = Organization.new(name: params[:organization_name], phone: params[:organization_phone])
       @resource.organization = organization
       # give redirect value from params priority
@@ -46,14 +45,18 @@ module DeviseTokenAuth
         organization.save if @resource.valid?
         
         if @resource.save
-          begin
-            gibbon = Gibbon::Request.new(api_key: ENV["MAILCHIMP_API_KEY"])
-            gibbon.lists(ENV["MAILCHIMP_LIST_ID"]).members.create(body: { email_address: @resource.email, status: "subscribed", merge_fields: {}, :double_optin => false })
-          rescue Gibbon::MailChimpError
+          if Rails.env.production?
+            begin
+              gibbon = Gibbon::Request.new(api_key: ENV["MAILCHIMP_API_KEY"])
+              gibbon.lists(ENV["MAILCHIMP_LIST_ID"]).members.create(body: { email_address: @resource.email, status: "subscribed", merge_fields: {}, :double_optin => false })
+            rescue Gibbon::MailChimpError
+            end
+            
+            Hubspot::Contact.create!(@resource.email, {firstname: @resource.first_name, lastname: @resource.last_name, phone: organization.phone})
+            UserMailer.welcome(@resource).deliver!
           end
-          
-          Hubspot::Contact.create!(@resource.email, {firstname: @resource.first_name, lastname: @resource.last_name, phone: organization.phone})
-          UserMailer.welcome(@resource).deliver!
+
+          UserMailer.email_terms(@resource).deliver! if params[:email_terms]
 
           yield @resource if block_given?
 
