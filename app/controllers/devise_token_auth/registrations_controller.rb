@@ -12,7 +12,7 @@ module DeviseTokenAuth
       organization         = Organization.new(name: params[:organization_name], phone: params[:organization_phone])
       @resource.organization = organization
       # give redirect value from params priority
-
+      
       redirect_url = params[:confirm_success_url]
 
       # fall back to default value if provided
@@ -53,10 +53,7 @@ module DeviseTokenAuth
             end
             
             Hubspot::Contact.create!(@resource.email, {firstname: @resource.first_name, lastname: @resource.last_name, phone: organization.phone})
-            UserMailer.welcome(@resource).deliver!
           end
-
-          UserMailer.email_terms(@resource).deliver! if params[:email_terms]
 
           yield @resource if block_given?
 
@@ -81,6 +78,8 @@ module DeviseTokenAuth
 
             update_auth_header
           end
+
+          UserMailer.email_terms(@resource).deliver! if params[:email_terms]
 
           render json: {
             status: 'success',
