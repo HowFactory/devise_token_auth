@@ -52,7 +52,10 @@ module DeviseTokenAuth
             rescue Gibbon::MailChimpError
             end
             
-            Hubspot::Contact.create!(@resource.email, {firstname: @resource.first_name, lastname: @resource.last_name, phone: organization.phone})
+            begin
+              Hubspot::Contact.create!(@resource.email, {firstname: @resource.first_name, lastname: @resource.last_name, phone: organization.phone})
+            rescue
+            end
           end
 
           yield @resource if block_given?
