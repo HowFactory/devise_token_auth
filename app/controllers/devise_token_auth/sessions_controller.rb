@@ -73,7 +73,7 @@ module DeviseTokenAuth
 
       elsif !@resource
         render json: {
-          errors: ["This username does not exist. Please try again."]
+          errors: ["This username or email does not exist. Please try again."]
         }, status: 401
       else
         render json: {
