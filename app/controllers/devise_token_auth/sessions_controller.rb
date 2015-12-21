@@ -51,6 +51,10 @@ module DeviseTokenAuth
           ]
         }, status: 401
 
+      elsif !@resource
+        render json: {
+          errors: ["This username does not exist. Please try again."]
+        }, status: 401
       else
         render json: {
           errors: ["Invalid login credentials. Please try again."]
