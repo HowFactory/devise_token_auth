@@ -3,6 +3,17 @@ module DeviseTokenAuth
   class SessionsController < DeviseTokenAuth::ApplicationController
     before_filter :set_user_by_token, :only => [:destroy]
 
+    swagger_controller :sessions, "Login and Logout"
+
+    swagger_api :create do
+      summary "Login"
+      param :form, :username, :string, :required, "Username or email"
+      param :form, :password, :string, :required, "Password"
+      response :unauthorized
+      response :not_found
+      response :ok
+    end
+
     def create
       # Check
       #field = (resource_params.keys.map(&:to_sym) & resource_class.authentication_keys).first
@@ -80,6 +91,13 @@ module DeviseTokenAuth
           errors: ["Invalid login credentials. Please try again."]
         }, status: 401
       end
+    end
+
+    swagger_api :destroy do
+      summary "Logout"
+      response :unauthorized
+      response :not_found
+      response :ok
     end
 
     def destroy
