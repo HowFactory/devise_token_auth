@@ -3,6 +3,19 @@ module DeviseTokenAuth
     before_filter :set_user_by_token, :only => [:update]
     skip_after_filter :update_auth_header, :only => [:create, :edit]
 
+    swagger_controller :passwords, "Password Reset"
+
+    swagger_api :create do
+      summary "Password Reset"
+      notes "An email will be sent with password reset instructions"
+      param :form, :username, :string, :required, "Can be username or email"
+      response :ok
+      response :forbidden
+      response :unauthorized
+      response :not_found
+      response :bad_request
+    end
+
     # this action is responsible for generating password reset tokens and
     # sending emails
     def create

@@ -5,6 +5,24 @@ module DeviseTokenAuth
     before_filter :validate_account_update_params, :only => :update
     skip_after_filter :update_auth_header, :only => [:create, :destroy]
 
+    swagger_controller :registrations, "Register"
+
+    swagger_api :create do
+      summary "Register"
+      param :form, :organization_name, :string, :required
+      param :form, :organization_phone, :string, :optional
+      param :form, :email, :string, :required
+      param :form, :password, :string, :required
+      param :form, :password_confirmation, :string, :required
+      param :form, :username, :string, :required
+      param :form, :first_name, :string, :required
+      param :form, :last_name, :string, :required
+      param :form, :work_phone, :string, :optional
+      param :form, :email_terms, :boolean, :optional, "Email a copy of terms of use"
+      response :ok
+      response :forbidden
+    end
+
     def create
       @resource            = resource_class.new(resource_params)
       @resource.provider   = "email"
