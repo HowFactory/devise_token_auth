@@ -8,7 +8,7 @@ module DeviseTokenAuth
     swagger_api :create do
       summary "Login"
       param :form, :username, :string, :required, "Username or email"
-      param :form, :password, :string, :required, "Password"
+      param :form, :password, :password, :required, "Password"
       response :unauthorized
       response :not_found
       response :ok
