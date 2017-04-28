@@ -35,61 +35,70 @@ module DeviseTokenAuth
       #   @resource = resource_class.where(q, q_value).first
       # end
 
-      q_value = resource_params[:username]
+      subdomain = request.headers['subdomain']
+      organization = Organization.where(subdomain: subdomain).first if subdomain
 
-      q = "username = ? AND provider='email'"
+      if organization
+        q_value = resource_params[:username]
 
-      if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
-        q = "BINARY " + q
-      end
-
-      @resource = resource_class.where(q, q_value).first
-
-      if !@resource
-        q = "email = ? AND provider='email'"
+        q = "username = ? AND provider='email' AND organization_id = ?"
 
         if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
           q = "BINARY " + q
         end
 
-        @resource = resource_class.where(q, q_value).first
-      end
+        @resource = resource_class.where(q, q_value, organization.id).first
 
-      if @resource and valid_params?(:username, q_value) and @resource.valid_password?(resource_params[:password]) and @resource.confirmed?
-        # create client id
-        @client_id = SecureRandom.urlsafe_base64(nil, false)
-        @token     = SecureRandom.urlsafe_base64(nil, false)
+        if !@resource
+          q = "email = ? AND provider='email' AND organization_id = ?"
 
-        @resource.tokens[@client_id] = {
-          token: BCrypt::Password.create(@token),
-          expiry: (Time.now + DeviseTokenAuth.token_lifespan).to_i
-        }
-        @resource.save
+          if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
+            q = "BINARY " + q
+          end
 
-        sign_in(:user, @resource, store: false, bypass: false)
+          @resource = resource_class.where(q, q_value, organization.id).first
+        end
 
-        render json: {
-          data: @resource.token_validation_response
-        }
+        if @resource and valid_params?(:username, q_value) and @resource.valid_password?(resource_params[:password]) and @resource.confirmed?
+          # create client id
+          @client_id = SecureRandom.urlsafe_base64(nil, false)
+          @token     = SecureRandom.urlsafe_base64(nil, false)
 
-      elsif @resource and not @resource.confirmed?
-        render json: {
-          success: false,
-          errors: [
-            "A confirmation email was sent to your account at #{@resource.email}. "+
-            "You must follow the instructions in the email before your account "+
-            "can be activated"
-          ]
-        }, status: 401
+          @resource.tokens[@client_id] = {
+            token: BCrypt::Password.create(@token),
+            expiry: (Time.now + DeviseTokenAuth.token_lifespan).to_i
+          }
+          @resource.save
 
-      elsif !@resource
-        render json: {
-          errors: ["This username or email does not exist. Please try again."]
-        }, status: 401
+          sign_in(:user, @resource, store: false, bypass: false)
+
+          render json: {
+            data: @resource.token_validation_response
+          }
+
+        elsif @resource and not @resource.confirmed?
+          render json: {
+            success: false,
+            errors: [
+              "A confirmation email was sent to your account at #{@resource.email}. "+
+              "You must follow the instructions in the email before your account "+
+              "can be activated"
+            ]
+          }, status: 401
+
+        elsif !@resource
+          render json: {
+            errors: ["This username or email does not exist. Please try again."]
+          }, status: 401
+        else
+          render json: {
+            errors: ["Invalid login credentials. Please try again."]
+          }, status: 401
+        end
       else
         render json: {
-          errors: ["Invalid login credentials. Please try again."]
-        }, status: 401
+            errors: ["There is no organization with this subdomain"]
+          }, status: 401
       end
     end
 

@@ -25,9 +25,13 @@ module DeviseTokenAuth::Concerns::SetUserByToken
     uid        = request.headers['uid'] || params['uid']
     @token     = request.headers['access-token'] || params['access-token']
     @client_id = request.headers['client'] || params['client']
+    subdomain  = request.headers['subdomain']
 
     # client_id isn't required, set to 'default' if absent
     @client_id ||= 'default'
+
+    organization = Organization.where(subdomain: subdomain).first
+    return false unless organization
 
     # check for an existing user, authenticated via warden/devise
     devise_warden_user =  warden.user(rc.to_s.underscore.to_sym)
@@ -37,14 +41,14 @@ module DeviseTokenAuth::Concerns::SetUserByToken
     end
 
     # user has already been found and authenticated
-    return @resource if @resource and @resource.class == rc
+    return @resource if @resource and @resource.class == rc && organization.id == @resource.organization_id
 
     return false unless @token
 
     # mitigate timing attacks by finding by uid instead of auth token
     user = uid && rc.find_by_uid(uid)
 
-    if user && user.valid_token?(@token, @client_id)
+    if user && user.valid_token?(@token, @client_id) && user.organization_id == organization.id
       sign_in(:user, user, store: false, bypass: true)
       return @resource = user
     else
