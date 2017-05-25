@@ -27,7 +27,7 @@ module DeviseTokenAuth
       @resource            = resource_class.new(resource_params)
       @resource.provider   = "email"
       @resource.admin      = true
-      organization         = Organization.new(name: params[:organization_name], phone: params[:organization_phone])
+      organization         = Organization.new(name: params[:organization_name], subdomain: params[:organization_subdomain])
       @resource.organization = organization
       # give redirect value from params priority
       
@@ -61,8 +61,15 @@ module DeviseTokenAuth
         resource_class.skip_callback("create", :after, :send_on_create_confirmation_instructions)
 
         organization.save if @resource.valid?
-        
+
         if @resource.save
+
+          if Rails.env.development?
+            redirect_url = "https://#{organization.subdomain}.howfactory.com:8000/app/#/reset-password"
+          else
+            redirect_url = "https://#{organization.subdomain}.howfactory.com/#/sign-up"
+          end
+
           if Rails.env.production?
             begin
               gibbon = Gibbon::Request.new(api_key: ENV["MAILCHIMP_API_KEY"])
