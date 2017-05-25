@@ -19,96 +19,91 @@ module DeviseTokenAuth
     # this action is responsible for generating password reset tokens and
     # sending emails
     def create
-      if !resource_params[:username]
-        return render json: {
-          success: false,
-          errors: ['You must provide an email address or a username']
-        }, status: 401
-      end
+      subdomain = request.headers['subdomain']
+      organization = Organization.where(subdomain: subdomain).first if subdomain
 
-      # give redirect value from params priority
-      redirect_url = params[:redirect_url]
-
-      # fall back to default value if provided
-      redirect_url ||= DeviseTokenAuth.default_password_reset_url
-
-      unless redirect_url
-        return render json: {
-          success: false,
-          errors: ['Missing redirect url.']
-        }, status: 401
-      end
-
-      # if whitelist is set, validate redirect_url against whitelist
-      if DeviseTokenAuth.redirect_whitelist
-        unless DeviseTokenAuth.redirect_whitelist.include?(redirect_url)
+      if organization
+        if !resource_params[:username]
           return render json: {
-            status: 'error',
-            data:   @resource.as_json,
-            errors: ["Redirect to #{redirect_url} not allowed."]
-          }, status: 403
+            success: false,
+            errors: ['You must provide an email address']
+          }, status: 401
         end
-      end
 
-      # honor devise configuration for case_insensitive_keys
-      if resource_params[:username]
-        if resource_class.case_insensitive_keys.include?(:email)
-          email = resource_params[:username].downcase
-        else
-          email = resource_params[:username]
+        # give redirect value from params priority
+        redirect_url = params[:redirect_url]
+
+        # fall back to default value if provided
+        redirect_url ||= DeviseTokenAuth.default_password_reset_url
+        redirect_url = "https://#{organization.subdomain}.howfactory.com/"
+        unless redirect_url
+          return render json: {
+            success: false,
+            errors: ['Missing redirect url.']
+          }, status: 401
         end
-        q = "uid = ? AND provider='email'"
-        if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
-          q = "BINARY uid = ? AND provider='email'"
-        end
-        @resource = resource_class.where(q, email).first
-        unless @resource
-          username = resource_params[:username]
-          q = "username = ? AND provider='email'"
-          @resource = resource_class.where(q, username).first
-          if @resource
-            email = @resource.email
-            if email.blank?
-              return render json: {
-              success: false,
-              errors: ['There is no email address associated with this account. Please contact your company admin to reset your password.']
-            }, status: 401
-            end
+
+        # if whitelist is set, validate redirect_url against whitelist
+        if DeviseTokenAuth.redirect_whitelist
+          unless DeviseTokenAuth.redirect_whitelist.include?(redirect_url)
+            return render json: {
+              status: 'error',
+              data:   @resource.as_json,
+              errors: ["Redirect to #{redirect_url} not allowed."]
+            }, status: 403
           end
         end
-      end
-      
 
-      errors = nil
-      error_status = 400
+        # honor devise configuration for case_insensitive_keys
+        if resource_params[:username]
+          if resource_class.case_insensitive_keys.include?(:email)
+            email = resource_params[:username].downcase
+          else
+            email = resource_params[:username]
+          end
+          q = "email = ? AND provider='email' AND organization_id = ?"
+          if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
+            q = "BINARY email = ? AND provider='email' AND organization_id = ?"
+          end
+          @resource = resource_class.where(q, email, organization.id).first
+        end
+        
 
-      if @resource
-        @resource.send_reset_password_instructions({
-          email: email,
-          provider: 'email',
-          redirect_url: redirect_url,
-          client_config: params[:config_name]
-        })
+        errors = nil
+        error_status = 400
 
-        if @resource.errors.empty?
-          render json: {
-            success: true,
-            message: "An email has been sent to #{email} containing "+
-              "instructions for resetting your password."
-          }
+        if @resource
+          @resource.send_reset_password_instructions({
+            email: email,
+            provider: 'email',
+            redirect_url: redirect_url,
+            client_config: params[:config_name]
+          })
+
+          if @resource.errors.empty?
+            render json: {
+              success: true,
+              message: "An email has been sent to #{email} containing "+
+                "instructions for resetting your password."
+            }
+          else
+            errors = @resource.errors
+          end
         else
-          errors = @resource.errors
+          errors = ["Unable to find user with email or username '#{params[:username]}'."]
+          error_status = 404
+        end
+
+        if errors
+          render json: {
+            success: false,
+            errors: errors,
+          }, status: error_status
         end
       else
-        errors = ["Unable to find user with email or username '#{params[:username]}'."]
-        error_status = 404
-      end
-
-      if errors
         render json: {
-          success: false,
-          errors: errors,
-        }, status: error_status
+            errors: ["There is no organization with this subdomain"]
+          }, status: 401
       end
     end
 
@@ -135,6 +130,8 @@ module DeviseTokenAuth
 
         @resource.save!
 
+        debugger
+        
         redirect_to(@resource.build_auth_url(params[:redirect_url], {
           token:          token,
           client_id:      client_id,
