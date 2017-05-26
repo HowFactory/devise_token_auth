@@ -27,7 +27,7 @@ module DeviseTokenAuth
       @resource            = resource_class.new(resource_params)
       @resource.provider   = "email"
       @resource.admin      = true
-      organization         = Organization.new(name: params[:organization_name], subdomain: params[:organization_subdomain])
+      organization         = Organization.new(name: params[:organization_name], subdomain: params[:organization_subdomain], role: params[:signup_role])
       @resource.organization = organization
       # give redirect value from params priority
       
@@ -63,7 +63,7 @@ module DeviseTokenAuth
         organization.save if @resource.valid?
 
         if @resource.save
-
+          organization.update(sign_up_user_id: @resource.id)
           if Rails.env.development?
             redirect_url = "https://#{organization.subdomain}.howfactory.com:8000/app/#/reset-password"
           else
