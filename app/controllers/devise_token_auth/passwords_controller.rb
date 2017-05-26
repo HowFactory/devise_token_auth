@@ -129,8 +129,6 @@ module DeviseTokenAuth
         @resource.skip_confirmation! unless @resource.confirmed_at
 
         @resource.save!
-
-        debugger
         
         redirect_to(@resource.build_auth_url(params[:redirect_url], {
           token:          token,
