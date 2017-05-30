@@ -92,7 +92,7 @@ module DeviseTokenAuth
           }, status: 401
         else
           render json: {
-            errors: ["Invalid login credentials. Please try again."]
+            errors: ["Sorry, you entered an incorrect email address or password."]
           }, status: 401
         end
       else
