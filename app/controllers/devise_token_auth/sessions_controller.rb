@@ -60,21 +60,28 @@ module DeviseTokenAuth
         end
 
         if @resource and valid_params?(:username, q_value) and @resource.valid_password?(resource_params[:password]) and @resource.confirmed?
-          # create client id
-          @client_id = SecureRandom.urlsafe_base64(nil, false)
-          @token     = SecureRandom.urlsafe_base64(nil, false)
+          if @resource.disabled
+            render json: {
+              success: false,
+              errors: ["Your account has been disabled. Please contact your admin."]
+            }, status: 401
+          else
+            # create client id
+            @client_id = SecureRandom.urlsafe_base64(nil, false)
+            @token     = SecureRandom.urlsafe_base64(nil, false)
 
-          @resource.tokens[@client_id] = {
-            token: BCrypt::Password.create(@token),
-            expiry: (Time.now + DeviseTokenAuth.token_lifespan).to_i
-          }
-          @resource.save
+            @resource.tokens[@client_id] = {
+              token: BCrypt::Password.create(@token),
+              expiry: (Time.now + DeviseTokenAuth.token_lifespan).to_i
+            }
+            @resource.save
 
-          sign_in(:user, @resource, store: false, bypass: false)
+            sign_in(:user, @resource, store: false, bypass: false)
 
-          render json: {
-            data: @resource.token_validation_response
-          }
+            render json: {
+              data: @resource.token_validation_response
+            }
+          end
 
         elsif @resource and not @resource.confirmed?
           render json: {

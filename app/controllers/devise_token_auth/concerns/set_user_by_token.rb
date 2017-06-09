@@ -48,7 +48,7 @@ module DeviseTokenAuth::Concerns::SetUserByToken
     # mitigate timing attacks by finding by uid instead of auth token
     user = uid && rc.find_by_uid(uid)
 
-    if user && user.valid_token?(@token, @client_id) && user.organization_id == organization.id
+    if user && user.valid_token?(@token, @client_id) && user.organization_id == organization.id && !user.disabled
       sign_in(:user, user, store: false, bypass: true)
       return @resource = user
     else
