@@ -60,7 +60,12 @@ module DeviseTokenAuth
         end
 
         if @resource and valid_params?(:username, q_value) and @resource.valid_password?(resource_params[:password]) and @resource.confirmed?
-          if @resource.disabled
+          if organization.status == "trial" && organization.trial_expiration_date > Time.zone.now && @resource.admin?
+            render json: {
+              success: false,
+              errors: ["Your organization's trial period has expired. Please contact your admin."]
+            }, status: 401
+          elsif @resource.disabled
             render json: {
               success: false,
               errors: ["Your account has been disabled. Please contact your admin."]
