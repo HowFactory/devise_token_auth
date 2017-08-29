@@ -41,8 +41,11 @@ module DeviseTokenAuth::Concerns::SetUserByToken
     end
 
     # user has already been found and authenticated but trial expiration expired
-    if @resource and @resource.class == rc && organization.id == @resource.organization_id && organization.status == 'trial' && organization.trial_expiration_date < Time.zone.now && !@resource.admin?
-        return false
+    if @resource and @resource.class == rc && 
+      organization.id == @resource.organization_id && 
+      (organization.status != 'active' && organization.status != 'custom_plan') ||
+      (organization.status == 'trial' && organization.trial_expiration_date < Time.zone.now && !@resource.admin?)
+      return false
     end
 
     # user has already been found and authenticated
@@ -54,7 +57,8 @@ module DeviseTokenAuth::Concerns::SetUserByToken
     user = uid && rc.find_by_uid(uid)
 
     if user && user.valid_token?(@token, @client_id) && user.organization_id == organization.id && !user.disabled
-      if organization.status == "trial" && organization.trial_expiration_date < Time.zone.now && !user.admin?
+      if (organization.status != 'active' && organization.status != 'custom_plan') ||
+       (organization.status == "trial" && organization.trial_expiration_date < Time.zone.now && !user.admin?)
         return false
       else
         sign_in(:user, user, store: false, bypass: true)
