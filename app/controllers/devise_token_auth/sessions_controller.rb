@@ -43,18 +43,18 @@ module DeviseTokenAuth
 
         q = "username = ? AND provider='email' AND organization_id = ?"
 
-        if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
-          q = "BINARY " + q
-        end
+        # if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
+        #   q = "BINARY " + q
+        # end
 
         @resource = resource_class.where(q, q_value, organization.id).first
 
         if !@resource
           q = "email = ? AND provider='email' AND organization_id = ?"
 
-          if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
-            q = "BINARY " + q
-          end
+          # if ActiveRecord::Base.connection.adapter_name.downcase.starts_with? 'mysql'
+          #   q = "BINARY " + q
+          # end
 
           @resource = resource_class.where(q, q_value, organization.id).first
         end
